@@ -8,6 +8,7 @@ from model.mnist_model import MNISTModel
 from torchvision import datasets, transforms
 import glob
 import os
+from utils.augmentation import MNISTAugmentation
 
 def get_latest_model():
     # Get the most recent model file
@@ -67,3 +68,50 @@ def test_model_accuracy():
     
     except FileNotFoundError as e:
         pytest.fail(str(e)) 
+
+def test_model_augmented_input():
+    """Test model performance on augmented data"""
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = MNISTModel().to(device)
+    model.load_state_dict(torch.load(get_latest_model()))
+    model.eval()
+    
+    augmenter = MNISTAugmentation()
+    dataset = datasets.MNIST('./data', train=False, download=True)
+    image, label = dataset[0]
+    
+    # Test multiple augmented versions
+    for _ in range(5):
+        augmented = augmenter.get_augmented_sample(image).unsqueeze(0).to(device)
+        with torch.no_grad():
+            output = model(augmented)
+        assert output.shape == (1, 10), "Output shape incorrect for augmented input"
+
+def test_model_robustness():
+    """Test model performance on noisy input"""
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = MNISTModel().to(device)
+    model.load_state_dict(torch.load(get_latest_model()))
+    model.eval()
+    
+    # Add noise to test input
+    test_input = torch.randn(1, 1, 28, 28).to(device)
+    test_input = torch.clamp(test_input, -1, 1)
+    
+    with torch.no_grad():
+        output = model(test_input)
+    assert output.shape == (1, 10), "Model failed on noisy input"
+
+def test_model_batch_processing():
+    """Test model with different batch sizes"""
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = MNISTModel().to(device)
+    model.load_state_dict(torch.load(get_latest_model()))
+    model.eval()
+    
+    batch_sizes = [1, 16, 32, 64, 128]
+    for size in batch_sizes:
+        test_input = torch.randn(size, 1, 28, 28).to(device)
+        with torch.no_grad():
+            output = model(test_input)
+        assert output.shape == (size, 10), f"Failed for batch size {size}"

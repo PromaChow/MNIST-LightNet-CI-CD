@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 import sys
 import urllib.request
+from utils.augmentation import MNISTAugmentation
 
 def download_mnist_fallback():
     """Fallback method to download MNIST dataset from alternative sources"""
@@ -66,6 +67,16 @@ def train():
         model = MNISTModel().to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters())
+        
+        print("Setting up augmentation...")
+        augmenter = MNISTAugmentation()
+        
+        # Save some augmented samples
+        augmenter.save_augmented_samples(train_dataset)
+        
+        # Use augmentation in training
+        transform = augmenter.augmentations
+        train_dataset.transform = transform
         
         print("Starting training...")
         model.train()
